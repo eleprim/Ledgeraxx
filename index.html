@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-[#e8eaed]">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ledger — Double-Entry Accounting</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .material-symbols-outlined { font-size: 19px; vertical-align: middle; }
+    .glass-canvas {
+      background: rgba(245, 246, 248, 0.88);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+    }
+  </style>
+</head>
+<body class="h-full antialiased text-zinc-800 bg-[#e4e7ec] p-3 sm:p-5 lg:p-7 flex items-center justify-center selection:bg-zinc-900 selection:text-white">
+
+  <!-- ================= AUTH SCREEN ================= -->
+  <div id="auth-screen" class="w-full max-w-md bg-white/90 backdrop-blur-xl border border-white/80 rounded-[32px] p-8 shadow-2xl shadow-zinc-900/10 text-center relative z-20">
+    <div class="h-16 w-16 mx-auto mb-5 rounded-2xl bg-zinc-900 flex items-center justify-center text-white shadow-md">
+      <span class="material-symbols-outlined text-2xl">account_balance</span>
+    </div>
+    <h1 class="text-2xl font-extrabold tracking-tight text-zinc-900 mb-2">Welcome to Ledger</h1>
+    <p class="text-zinc-500 text-xs mb-8 leading-relaxed">Modern double-entry financial suite with real-time balance sheets, automated subledgers, and balanced journal cascades.</p>
+
+    <div class="space-y-3">
+      <button id="btn-google-login" class="w-full flex items-center justify-center gap-3 px-4 py-3.5 rounded-2xl bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-xs transition shadow-md cursor-pointer">
+        <svg class="w-4 h-4" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <span>Sign in with Google</span>
+      </button>
+
+      <button id="btn-guest-login" class="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl bg-zinc-100 hover:bg-zinc-200/80 text-zinc-700 font-semibold text-xs border border-zinc-200/80 transition cursor-pointer">
+        <span class="material-symbols-outlined text-sm">rocket_launch</span>
+        <span>Instant Demo Workspace (No Login)</span>
+      </button>
+    </div>
+
+    <div id="auth-error-msg" class="hidden mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-xs text-left"></div>
+  </div>
+
+  <!-- ================= FLOATING GLASSMORPHIC MAIN SHELL ================= -->
+  <div id="app-shell" class="hidden w-full max-w-[1440px] h-[94vh] glass-canvas rounded-[32px] flex overflow-hidden relative shadow-2xl">
+    
+    <!-- LEFT SIDEBAR -->
+    <aside class="w-64 bg-white/70 backdrop-blur-md border-r border-zinc-200/60 p-5 flex flex-col justify-between shrink-0 hidden md:flex">
+      <div class="space-y-6">
+        <!-- Logo -->
+        <div class="flex items-center gap-3 px-2">
+          <div class="h-9 w-9 rounded-xl bg-zinc-900 flex items-center justify-center text-white shadow-sm">
+            <span class="material-symbols-outlined text-lg">sync_alt</span>
+          </div>
+          <div>
+            <span class="font-extrabold text-lg tracking-tight text-zinc-900">Ledger</span>
+            <span class="text-[10px] block font-mono text-zinc-400 font-semibold uppercase tracking-wider">Double-Entry</span>
+          </div>
+        </div>
+
+        <!-- Main Nav Tabs -->
+        <nav class="space-y-1" id="nav-tabs">
+          <button data-view="dashboard" class="nav-tab active w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-semibold bg-zinc-900 text-white shadow-sm cursor-pointer transition">
+            <span class="material-symbols-outlined text-base">dashboard</span>
+            <span>Dashboard</span>
+          </button>
+          <button data-view="statements" class="nav-tab w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-medium text-zinc-600 hover:text-zinc-950 hover:bg-black/5 cursor-pointer transition">
+            <span class="material-symbols-outlined text-base">finance</span>
+            <span>Statements</span>
+          </button>
+          <button data-view="invoices" class="nav-tab w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-medium text-zinc-600 hover:text-zinc-950 hover:bg-black/5 cursor-pointer transition">
+            <span class="material-symbols-outlined text-base">receipt_long</span>
+            <span>Invoices (A/R)</span>
+          </button>
+          <button data-view="bills" class="nav-tab w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-medium text-zinc-600 hover:text-zinc-950 hover:bg-black/5 cursor-pointer transition">
+            <span class="material-symbols-outlined text-base">payments</span>
+            <span>Bills (A/P)</span>
+          </button>
+          <button data-view="journal" class="nav-tab w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-medium text-zinc-600 hover:text-zinc-950 hover:bg-black/5 cursor-pointer transition">
+            <span class="material-symbols-outlined text-base">history_edu</span>
+            <span>General Journal</span>
+          </button>
+          <button data-view="ledgers" class="nav-tab w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-xs font-medium text-zinc-600 hover:text-zinc-950 hover:bg-black/5 cursor-pointer transition">
+            <span class="material-symbols-outlined text-base">menu_book</span>
+            <span>Account Ledgers</span>
+          </button>
+        </nav>
+
+        <!-- Secondary Section -->
+        <div class="pt-4 border-t border-zinc-200/60 space-y-2">
+          <p class="px-3 text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Directory &amp; Setup</p>
+          <nav class="space-y-1">
+            <button data-view="accounts" class="nav-tab w-full flex items-center gap-3 px-4 py-2 rounded-2xl text-xs font-medium text-zinc-600 hover:text-zinc-950 hover:bg-black/5 cursor-pointer transition">
+              <span class="material-symbols-outlined text-base">account_tree</span>
+              <span>Chart of Accounts</span>
+            </button>
+            <button data-view="directory" class="nav-tab w-full flex items-center gap-3 px-4 py-2 rounded-2xl text-xs font-medium text-zinc-600 hover:text-zinc-950 hover:bg-black/5 cursor-pointer transition">
+              <span class="material-symbols-outlined text-base">group</span>
+              <span>Contacts Directory</span>
+            </button>
+            <button data-view="settings" class="nav-tab w-full flex items-center gap-3 px-4 py-2 rounded-2xl text-xs font-medium text-zinc-600 hover:text-zinc-950 hover:bg-black/5 cursor-pointer transition">
+              <span class="material-symbols-outlined text-base">settings</span>
+              <span>Company Settings</span>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      <!-- User Footprint & Actions -->
+      <div class="pt-4 border-t border-zinc-200/60 flex items-center justify-between">
+        <div class="flex items-center gap-2.5 truncate">
+          <div class="h-8 w-8 rounded-full bg-zinc-200 flex items-center justify-center font-bold text-xs text-zinc-700 shrink-0" id="user-avatar-initials">
+            LD
+          </div>
+          <div class="truncate">
+            <p id="user-display-name" class="text-xs font-bold text-zinc-900 truncate">Founder</p>
+            <p id="user-display-email" class="text-[10px] text-zinc-400 truncate">demo@company.com</p>
+          </div>
+        </div>
+        <button id="btn-signout" title="Sign Out" class="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition cursor-pointer">
+          <span class="material-symbols-outlined text-base">logout</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- RIGHT CONTENT AREA -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      
+      <!-- TOP NAVIGATION BAR -->
+      <header class="h-20 px-6 sm:px-8 flex items-center justify-between border-b border-zinc-200/60 bg-white/40 backdrop-blur-sm shrink-0">
+        <div class="flex items-center gap-3">
+          <!-- Mobile view selector -->
+          <div class="md:hidden">
+            <select id="mobile-nav-select" class="px-3 py-1.5 rounded-xl bg-white border border-zinc-200 text-xs font-semibold text-zinc-800">
+              <option value="dashboard">Dashboard</option>
+              <option value="statements">Statements</option>
+              <option value="invoices">Invoices (A/R)</option>
+              <option value="bills">Bills (A/P)</option>
+              <option value="journal">General Journal</option>
+              <option value="ledgers">Ledgers</option>
+              <option value="accounts">Accounts</option>
+              <option value="directory">Directory</option>
+              <option value="settings">Company Settings</option>
+            </select>
+          </div>
+
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-zinc-900 flex items-center gap-2">
+              <span id="page-greeting">Hi, Dilan!</span>
+            </h1>
+          </div>
+        </div>
+
+        <!-- Top Right Actions -->
+        <div class="flex items-center gap-3">
+          <button id="btn-seed-data" class="hidden sm:flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-full bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 shadow-sm transition cursor-pointer">
+            <span class="material-symbols-outlined text-zinc-800 text-sm">auto_awesome</span>
+            <span>Sample Books</span>
+          </button>
+
+          <button id="btn-open-tx-modal" class="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-xs shadow-sm transition hover:scale-[1.02] cursor-pointer">
+            <span class="material-symbols-outlined text-sm">add</span>
+            <span>+ Create</span>
+          </button>
+
+          <!-- Top round utility buttons matching reference -->
+          <div class="flex items-center gap-2 pl-1">
+            <button class="h-9 w-9 rounded-full bg-white border border-zinc-200/80 flex items-center justify-center text-zinc-600 hover:text-zinc-900 shadow-sm cursor-pointer transition">
+              <span class="material-symbols-outlined text-base">search</span>
+            </button>
+            <button class="h-9 w-9 rounded-full bg-white border border-zinc-200/80 flex items-center justify-center text-zinc-600 hover:text-zinc-900 shadow-sm cursor-pointer transition relative">
+              <span class="material-symbols-outlined text-base">notifications</span>
+              <span class="h-2 w-2 rounded-full bg-zinc-900 absolute top-2 right-2 border-2 border-white"></span>
+            </button>
+            <div class="h-9 w-9 rounded-full overflow-hidden border border-zinc-300 shadow-sm shrink-0 bg-zinc-900 flex items-center justify-center text-white text-xs font-bold" id="top-user-avatar">
+              D
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- SCROLLABLE BODY CANVAS -->
+      <main class="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6">
+        
+        <!-- ================= VIEW: DASHBOARD (MATCHING THE BENTO GRID IN PHOTO) ================= -->
+        <section id="view-dashboard" class="space-y-6">
+          
+          <!-- DATE RANGE & FILTER BAR -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/80 backdrop-blur-md rounded-2xl p-3 sm:px-5 sm:py-3 border border-zinc-200/70 shadow-sm">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-zinc-500 text-lg">calendar_month</span>
+              <span class="text-xs font-bold text-zinc-800">Reporting Range:</span>
+              <span id="dashboard-date-range-label" class="text-xs font-semibold text-zinc-500 font-mono">Last 30 Days</span>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <div class="inline-flex rounded-xl bg-zinc-100 p-0.5 border border-zinc-200/60" id="date-range-preset-group">
+                <button data-range="this-week" class="range-btn px-2.5 py-1 text-[11px] font-semibold rounded-lg text-zinc-600 hover:text-zinc-900 transition">This Week</button>
+                <button data-range="this-month" class="range-btn px-2.5 py-1 text-[11px] font-semibold rounded-lg text-zinc-600 hover:text-zinc-900 transition">This Month</button>
+                <button data-range="30d" class="range-btn px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-zinc-900 text-white shadow-xs transition">Last 30 Days</button>
+                <button data-range="this-quarter" class="range-btn px-2.5 py-1 text-[11px] font-semibold rounded-lg text-zinc-600 hover:text-zinc-900 transition">This Quarter</button>
+                <button data-range="this-year" class="range-btn px-2.5 py-1 text-[11px] font-semibold rounded-lg text-zinc-600 hover:text-zinc-900 transition">This Year</button>
+              </div>
+              <div class="flex items-center gap-1.5 text-xs text-zinc-600">
+                <input type="date" id="chart-start-date" class="px-2.5 py-1 rounded-xl bg-zinc-50 border border-zinc-200 text-xs font-mono text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-900">
+                <span class="text-zinc-400 text-xs">to</span>
+                <input type="date" id="chart-end-date" class="px-2.5 py-1 rounded-xl bg-zinc-50 border border-zinc-200 text-xs font-mono text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-900">
+              </div>
+            </div>
+          </div>
+
+          <!-- TOP BENTO ROW: OVERALL INFO + EQUATION HEALTH -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            
+            <!-- CARD 1: OVERALL INFORMATION (DARK HERO BENTO CARD) -->
+            <div class="lg:col-span-8 bg-zinc-900 text-white rounded-3xl p-6 shadow-xl flex flex-col justify-between relative overflow-hidden">
+              <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-bold text-zinc-100">Overall Information</span>
+                    <span id="hero-range-badge" class="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-white/10 text-zinc-300">Period Active</span>
+                  </div>
+                  <div class="flex items-center gap-2 text-zinc-400">
+                    <span class="material-symbols-outlined text-sm cursor-pointer hover:text-white">share</span>
+                    <span class="material-symbols-outlined text-sm cursor-pointer hover:text-white">more_vert</span>
+                  </div>
+                </div>
+
+                <div class="flex flex-wrap items-baseline gap-6 sm:gap-10 pt-2">
+                  <div>
+                    <div id="hero-net-income" class="text-3xl sm:text-4xl font-extrabold font-mono tracking-tight text-white">$0.00</div>
+                    <span class="text-[11px] text-zinc-400">Net Operating Income (Period)</span>
+                  </div>
+                  <div>
+                    <div id="hero-entry-count" class="text-2xl sm:text-3xl font-bold font-mono text-zinc-300">0</div>
+                    <span class="text-[11px] text-zinc-400">Transactions Posted</span>
+                  </div>
+                  <div>
+                    <div id="hero-total-sales" class="text-2xl sm:text-3xl font-bold font-mono text-white">$0.00</div>
+                    <span class="text-[11px] text-zinc-400">Total Sales Revenue</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 3 White Micro Metric Cards inside Dark Card -->
+              <div class="grid grid-cols-3 gap-2.5 mt-6">
+                <div class="bg-white text-zinc-900 rounded-2xl p-3 text-center shadow-sm">
+                  <div class="h-7 w-7 mx-auto mb-1 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-800">
+                    <span class="material-symbols-outlined text-xs">account_balance_wallet</span>
+                  </div>
+                  <div id="sub-cash-val" class="text-xs font-bold font-mono text-zinc-900 truncate">$0.00</div>
+                  <span class="text-[9px] font-semibold text-zinc-400 uppercase tracking-wider block">Cash &amp; Bank</span>
+                </div>
+
+                <div class="bg-white text-zinc-900 rounded-2xl p-3 text-center shadow-sm">
+                  <div class="h-7 w-7 mx-auto mb-1 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-800">
+                    <span class="material-symbols-outlined text-xs">pending</span>
+                  </div>
+                  <div id="sub-ar-val" class="text-xs font-bold font-mono text-zinc-900 truncate">$0.00</div>
+                  <span class="text-[9px] font-semibold text-zinc-400 uppercase tracking-wider block">Receivables</span>
+                </div>
+
+                <div class="bg-white text-zinc-900 rounded-2xl p-3 text-center shadow-sm">
+                  <div class="h-7 w-7 mx-auto mb-1 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-800">
+                    <span class="material-symbols-outlined text-xs">receipt</span>
+                  </div>
+                  <div id="sub-ap-val" class="text-xs font-bold font-mono text-zinc-900 truncate">$0.00</div>
+                  <span class="text-[9px] font-semibold text-zinc-400 uppercase tracking-wider block">Payables</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- CARD: EQUATION HEALTH & REPORT ACCESS -->
+            <div class="lg:col-span-4 bg-white rounded-3xl p-6 border border-zinc-200/70 shadow-sm flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-sm font-bold text-zinc-900">Equation Health</span>
+                  <span class="material-symbols-outlined text-zinc-900 text-base">check_circle</span>
+                </div>
+                <p class="text-[10px] text-zinc-400 mb-2">Assets = Liabilities + Equity</p>
+
+                <!-- Concentric Radial Target Graphic -->
+                <div class="flex items-center justify-center py-2">
+                  <div class="relative h-20 w-20 flex items-center justify-center">
+                    <svg class="h-full w-full -rotate-90" viewBox="0 0 36 36">
+                      <path class="text-zinc-100" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                      <path class="text-zinc-900" stroke-dasharray="100, 100" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                      <span class="text-xs font-extrabold font-mono text-zinc-900">100%</span>
+                      <span class="text-[8px] font-bold text-zinc-900 uppercase">Balanced</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bottom Button -->
+              <button onclick="document.querySelector('[data-view=statements]').click()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-semibold text-xs transition cursor-pointer">
+                <span>View Full Statements</span>
+                <span class="material-symbols-outlined text-xs">arrow_forward</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- DYNAMIC CHART ROW: CASH FLOW GRAPH & SALES PERFORMANCE GRAPH -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            
+            <!-- CHART 1: CASH FLOW GRAPH -->
+            <div class="lg:col-span-6 bg-white rounded-3xl p-6 border border-zinc-200/70 shadow-sm flex flex-col justify-between space-y-4">
+              <div>
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <div class="flex items-center gap-2">
+                    <div class="h-8 w-8 rounded-xl bg-zinc-100 text-zinc-900 flex items-center justify-center">
+                      <span class="material-symbols-outlined text-base">payments</span>
+                    </div>
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <h3 class="text-sm font-bold text-zinc-900">Cash Flow Graph</h3>
+                        <span id="cf-trend-badge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-900 border border-zinc-200">▲ 0.0% vs prior</span>
+                        <span id="cf-custom-badge" class="hidden text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-900 text-white tracking-wide">Custom</span>
+                      </div>
+                      <p class="text-[10px] text-zinc-400">Cash In (Debits) vs. Cash Out (Credits) vs. Net Balance</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <select id="cf-chart-period-select" class="px-2 py-1 text-[11px] font-semibold rounded-lg bg-zinc-100 hover:bg-zinc-200/70 border border-zinc-200 text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-900 cursor-pointer">
+                      <option value="default">Sync (Header Period)</option>
+                      <option value="this-week">This Week</option>
+                      <option value="this-month">This Month</option>
+                      <option value="30d">Last 30 Days</option>
+                      <option value="this-quarter">This Quarter</option>
+                      <option value="this-year">This Year</option>
+                    </select>
+                    <span id="cf-bucket-badge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-700">By Day</span>
+                  </div>
+                </div>
+
+                <!-- Cash Flow Summary Metric Pills (Grayscale palette) -->
+                <div class="grid grid-cols-3 gap-2 my-3 p-2.5 rounded-2xl bg-zinc-50 border border-zinc-100">
+                  <div>
+                    <span class="text-[9px] font-bold uppercase tracking-wider text-zinc-800 flex items-center gap-1">
+                      <span class="h-1.5 w-1.5 rounded-full bg-zinc-900"></span> Cash In
+                    </span>
+                    <span id="chart-cf-in" class="text-xs font-mono font-bold text-zinc-900 block truncate">$0.00</span>
+                  </div>
+                  <div>
+                    <span class="text-[9px] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1">
+                      <span class="h-1.5 w-1.5 rounded-full bg-zinc-400"></span> Cash Out
+                    </span>
+                    <span id="chart-cf-out" class="text-xs font-mono font-bold text-zinc-600 block truncate">$0.00</span>
+                  </div>
+                  <div>
+                    <span class="text-[9px] font-bold uppercase tracking-wider text-zinc-900 flex items-center gap-1">
+                      <span class="h-1.5 w-1.5 rounded-full bg-black"></span> Net Balance
+                    </span>
+                    <span id="chart-cf-net" class="text-xs font-mono font-bold text-zinc-950 block truncate">$0.00</span>
+                  </div>
+                </div>
+
+                <!-- Canvas container -->
+                <div class="relative h-64 w-full" id="cash-flow-canvas-wrapper">
+                  <canvas id="cashFlowChart"></canvas>
+                </div>
+              </div>
+
+              <div class="text-[10px] text-zinc-400 flex items-center justify-between pt-2 border-t border-zinc-100">
+                <span class="flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[12px] text-zinc-500">sync</span>
+                  <span>Direct from Cash &amp; Bank ledgers</span>
+                </span>
+                <span id="cf-date-footer" class="font-mono">Real-time sync</span>
+              </div>
+            </div>
+
+            <!-- CHART 2: SALES PERFORMANCE GRAPH -->
+            <div class="lg:col-span-6 bg-white rounded-3xl p-6 border border-zinc-200/70 shadow-sm flex flex-col justify-between space-y-4">
+              <div>
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <div class="flex items-center gap-2">
+                    <div class="h-8 w-8 rounded-xl bg-zinc-100 text-zinc-900 flex items-center justify-center">
+                      <span class="material-symbols-outlined text-base">trending_up</span>
+                    </div>
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <h3 class="text-sm font-bold text-zinc-900">Sales Performance</h3>
+                        <span id="sales-growth-badge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-900 border border-zinc-200">▲ 0.0% vs prior</span>
+                        <span id="sales-custom-badge" class="hidden text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-zinc-900 text-white tracking-wide">Custom</span>
+                      </div>
+                      <p class="text-[10px] text-zinc-400">Revenue account credits posted in General Journal</p>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <select id="sales-chart-period-select" class="px-2 py-1 text-[11px] font-semibold rounded-lg bg-zinc-100 hover:bg-zinc-200/70 border border-zinc-200 text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-900 cursor-pointer">
+                      <option value="default">Sync (Header Period)</option>
+                      <option value="this-week">This Week</option>
+                      <option value="this-month">This Month</option>
+                      <option value="30d">Last 30 Days</option>
+                      <option value="this-quarter">This Quarter</option>
+                      <option value="this-year">This Year</option>
+                    </select>
+
+                    <!-- View Mode Toggle: Periods vs. Top Customers -->
+                    <div class="inline-flex rounded-xl bg-zinc-100 p-0.5 border border-zinc-200/60" id="sales-view-toggle">
+                      <button id="btn-sales-period" class="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-white text-zinc-900 shadow-xs cursor-pointer">By Period</button>
+                      <button id="btn-sales-customer" class="px-2.5 py-1 text-[10px] font-bold rounded-lg text-zinc-500 hover:text-zinc-900 cursor-pointer">Top Customers</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Sales Metrics Row (Grayscale palette) -->
+                <div class="grid grid-cols-2 gap-2 my-3 p-2.5 rounded-2xl bg-zinc-50 border border-zinc-100">
+                  <div>
+                    <span class="text-[9px] font-bold uppercase tracking-wider text-zinc-500 block">Period Revenue</span>
+                    <span id="chart-sales-total" class="text-xs font-mono font-bold text-zinc-900 block truncate">$0.00</span>
+                  </div>
+                  <div>
+                    <span class="text-[9px] font-bold uppercase tracking-wider text-zinc-500 block">Prior Period Equivalent</span>
+                    <span id="chart-sales-prior" class="text-xs font-mono font-bold text-zinc-600 block truncate">$0.00</span>
+                  </div>
+                </div>
+
+                <!-- Canvas container -->
+                <div class="relative h-64 w-full">
+                  <canvas id="salesChart"></canvas>
+                </div>
+              </div>
+
+              <div class="text-[10px] text-zinc-400 flex items-center justify-between pt-2 border-t border-zinc-100">
+                <span class="flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[12px] text-zinc-600">receipt</span>
+                  <span>Matches Income Statement revenue exact</span>
+                </span>
+                <span id="sales-date-footer" class="font-mono">Real-time sync</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- MIDDLE BENTO ROW: GOALS, TASKS IN PROCESS, AND RECENT ENTRIES -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            
+            <!-- Month Financial Goals / Checklist -->
+            <div class="lg:col-span-4 bg-white rounded-3xl p-6 border border-zinc-200/70 shadow-sm space-y-4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-bold text-zinc-900">Period Checkpoints:</span>
+                  <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-700">3/4</span>
+                </div>
+                <span class="material-symbols-outlined text-zinc-400 text-sm cursor-pointer hover:text-zinc-900">edit</span>
+              </div>
+
+              <div class="space-y-2.5 text-xs text-zinc-700">
+                <label class="flex items-center gap-3 p-2 rounded-xl bg-zinc-50 border border-zinc-100 cursor-pointer">
+                  <input type="checkbox" checked class="rounded text-zinc-900 focus:ring-0">
+                  <span class="font-medium text-zinc-900">Reconcile Operating Cash & Bank</span>
+                </label>
+                <label class="flex items-center gap-3 p-2 rounded-xl bg-zinc-50 border border-zinc-100 cursor-pointer">
+                  <input type="checkbox" checked class="rounded text-zinc-900 focus:ring-0">
+                  <span class="font-medium text-zinc-900">Post Customer Invoices (A/R)</span>
+                </label>
+                <label class="flex items-center gap-3 p-2 rounded-xl bg-zinc-50 border border-zinc-100 cursor-pointer">
+                  <input type="checkbox" checked class="rounded text-zinc-900 focus:ring-0">
+                  <span class="font-medium text-zinc-900">Settle Outstanding Vendor Bills</span>
+                </label>
+                <label class="flex items-center gap-3 p-2 rounded-xl bg-zinc-50/50 border border-zinc-100 cursor-pointer">
+                  <input type="checkbox" class="rounded text-zinc-900 focus:ring-0">
+                  <span class="font-medium text-zinc-500">Run End-of-Month Balance Sheet</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Invoices & Bills in Process (2 Cards + 1 Add Card) -->
+            <div class="lg:col-span-8 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-bold text-zinc-900">Subledgers in Process</span>
+                <button onclick="document.querySelector('[data-view=invoices]').click()" class="text-xs font-semibold text-zinc-500 hover:text-zinc-900 flex items-center gap-1 cursor-pointer">
+                  <span>Open archive</span>
+                  <span class="material-symbols-outlined text-xs">chevron_right</span>
+                </button>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <!-- Card 1: Active Invoices -->
+                <div class="bg-white rounded-3xl p-5 border border-zinc-200/70 shadow-sm flex flex-col justify-between space-y-3">
+                  <div class="flex items-center justify-between">
+                    <div class="h-8 w-8 rounded-xl bg-zinc-100 text-zinc-900 flex items-center justify-center">
+                      <span class="material-symbols-outlined text-base">receipt_long</span>
+                    </div>
+                    <span class="material-symbols-outlined text-zinc-400 text-sm">more_horiz</span>
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-xs text-zinc-900">Outstanding Invoices</h4>
+                    <p id="bento-open-invoices-text" class="text-[11px] text-zinc-500 mt-0.5">0 open receivables</p>
+                  </div>
+                  <div class="flex items-center justify-between pt-2 border-t border-zinc-100">
+                    <span class="text-[10px] text-zinc-400 font-mono">Today</span>
+                    <button onclick="document.querySelector('[data-view=invoices]').click()" class="h-6 w-6 rounded-full bg-zinc-900 text-white flex items-center justify-center cursor-pointer">
+                      <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Card 2: Active Bills -->
+                <div class="bg-white rounded-3xl p-5 border border-zinc-200/70 shadow-sm flex flex-col justify-between space-y-3">
+                  <div class="flex items-center justify-between">
+                    <div class="h-8 w-8 rounded-xl bg-zinc-100 text-zinc-900 flex items-center justify-center">
+                      <span class="material-symbols-outlined text-base">payments</span>
+                    </div>
+                    <span class="material-symbols-outlined text-zinc-400 text-sm">more_horiz</span>
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-xs text-zinc-900">Pending Vendor Bills</h4>
+                    <p id="bento-open-bills-text" class="text-[11px] text-zinc-500 mt-0.5">0 open payables</p>
+                  </div>
+                  <div class="flex items-center justify-between pt-2 border-t border-zinc-100">
+                    <span class="text-[10px] text-zinc-400 font-mono">Today</span>
+                    <button onclick="document.querySelector('[data-view=bills]').click()" class="h-6 w-6 rounded-full bg-zinc-900 text-white flex items-center justify-center cursor-pointer">
+                      <span class="material-symbols-outlined text-xs">arrow_forward</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Card 3: Dashed + Add Transaction Card -->
+                <button id="btn-bento-add-tx" class="bg-white/40 hover:bg-white rounded-3xl p-5 border-2 border-dashed border-zinc-300 hover:border-zinc-900 transition flex flex-col items-center justify-center gap-2 text-zinc-600 hover:text-zinc-900 cursor-pointer shadow-sm">
+                  <span class="material-symbols-outlined text-2xl">add_circle</span>
+                  <span class="text-xs font-bold">+ Record Entry</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- BOTTOM BENTO ROW: RECENT TRANSACTIONS STREAM -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-bold text-zinc-900">Latest Posted Transactions</span>
+              <button onclick="document.querySelector('[data-view=journal]').click()" class="text-xs font-semibold text-zinc-500 hover:text-zinc-900 cursor-pointer">View General Journal →</button>
+            </div>
+
+            <div id="dashboard-recent-entries" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <!-- Recent cards will render here -->
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ================= VIEW: STATEMENTS ================= -->
+        <section id="view-statements" class="hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-3xl p-5 border border-zinc-200/70 shadow-sm">
+            <div class="flex items-center gap-2.5">
+              <div class="h-9 w-9 rounded-xl bg-zinc-900 text-white flex items-center justify-center">
+                <span class="material-symbols-outlined text-base">table_chart</span>
+              </div>
+              <div>
+                <h3 class="font-bold text-sm text-zinc-900">Real-Time Financial Statements</h3>
+                <p class="text-[11px] text-zinc-400">Strictly balanced double-entry reports &middot; Live transaction updates</p>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-1.5" id="statement-subtabs">
+              <button data-stmt="balance-sheet" class="stmt-tab active px-4 py-2 rounded-full text-xs font-semibold bg-zinc-900 text-white cursor-pointer shadow-sm">Balance Sheet</button>
+              <button data-stmt="income-statement" class="stmt-tab px-4 py-2 rounded-full text-xs font-semibold text-zinc-600 hover:text-zinc-900 bg-zinc-100 cursor-pointer">Income Statement</button>
+              <button data-stmt="cash-flow" class="stmt-tab px-4 py-2 rounded-full text-xs font-semibold text-zinc-600 hover:text-zinc-900 bg-zinc-100 cursor-pointer">Cash Flows</button>
+              <button data-stmt="equity-statement" class="stmt-tab px-4 py-2 rounded-full text-xs font-semibold text-zinc-600 hover:text-zinc-900 bg-zinc-100 cursor-pointer">Changes in Equity</button>
+            </div>
+          </div>
+
+          <!-- STATEMENT PERIOD CONTROLLER & DATE FILTER BAR -->
+          <div class="bg-white rounded-3xl p-5 border border-zinc-200/70 shadow-sm space-y-4">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-zinc-100 pb-3">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-zinc-700 text-base">date_range</span>
+                <span class="text-xs font-bold text-zinc-900">Reporting Period &amp; Date Filter:</span>
+                <span id="stmt-period-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-zinc-100 text-zinc-800 border border-zinc-200">
+                  All Time (Cumulative)
+                </span>
+              </div>
+              <div class="text-[11px] text-zinc-400 font-mono" id="stmt-period-range-display">
+                Showing all recorded transactions
+              </div>
+            </div>
+
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <!-- Period Preset Buttons -->
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button type="button" data-stmt-range="all" class="stmt-range-btn active px-3 py-1.5 rounded-xl text-xs font-semibold bg-zinc-900 text-white shadow-xs cursor-pointer transition">
+                  All Time
+                </button>
+                <button type="button" data-stmt-range="this_month" class="stmt-range-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 cursor-pointer transition">
+                  This Month
+                </button>
+                <button type="button" data-stmt-range="this_quarter" class="stmt-range-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 cursor-pointer transition">
+                  This Quarter
+                </button>
+                <button type="button" data-stmt-range="this_year" class="stmt-range-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 cursor-pointer transition">
+                  This Year
+                </button>
+                <button type="button" data-stmt-range="last_month" class="stmt-range-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 cursor-pointer transition">
+                  Last Month
+                </button>
+              </div>
+
+              <!-- Custom Date Inputs -->
+              <div class="flex items-center gap-2 flex-wrap">
+                <div class="flex items-center gap-1.5 text-xs text-zinc-600 font-medium">
+                  <span>From:</span>
+                  <input type="date" id="stmt-start-date" class="px-2.5 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono font-bold text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900">
+                </div>
+                <div class="flex items-center gap-1.5 text-xs text-zinc-600 font-medium">
+                  <span>To:</span>
+                  <input type="date" id="stmt-end-date" class="px-2.5 py-1.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono font-bold text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900">
+                </div>
+                <button type="button" id="btn-apply-stmt-dates" class="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-800 font-bold text-xs cursor-pointer transition border border-zinc-200">
+                  Apply Filter
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Statement Content Containers -->
+          <div id="stmt-container-balance-sheet" class="bg-white rounded-3xl p-6 sm:p-8 border border-zinc-200/70 shadow-sm space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-100 pb-4">
+              <div>
+                <h3 class="text-lg font-extrabold text-zinc-900">Statement of Financial Position (Balance Sheet)</h3>
+                <p id="bs-subtitle" class="text-xs text-zinc-500 font-medium">Assets = Liabilities + Equity &middot; As of today</p>
+              </div>
+              <div id="bs-balance-indicator" class="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5 self-start sm:self-auto">
+                <span class="material-symbols-outlined text-sm">check_circle</span>
+                <span>Accounting Equation In Balance</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <h4 class="text-xs font-bold text-zinc-900 uppercase tracking-wider mb-3">Assets</h4>
+                <div id="bs-assets-list" class="space-y-2.5 text-xs text-zinc-700"></div>
+                <div class="mt-4 pt-3 border-t border-zinc-200 flex justify-between font-bold text-zinc-900 text-sm">
+                  <span>Total Assets</span>
+                  <span id="bs-total-assets" class="font-mono">$0.00</span>
+                </div>
+              </div>
+              <div class="space-y-6">
+                <div>
+                  <h4 class="text-xs font-bold text-zinc-900 uppercase tracking-wider mb-3">Liabilities</h4>
+                  <div id="bs-liabilities-list" class="space-y-2.5 text-xs text-zinc-700"></div>
+                  <div class="mt-3 pt-2 border-t border-zinc-100 flex justify-between font-semibold text-zinc-900 text-xs">
+                    <span>Total Liabilities</span>
+                    <span id="bs-total-liabilities" class="font-mono">$0.00</span>
+                  </div>
+                </div>
+                <div>
+                  <h4 class="text-xs font-bold text-zinc-900 uppercase tracking-wider mb-3">Equity</h4>
+                  <div id="bs-equity-list" class="space-y-2.5 text-xs text-zinc-700"></div>
+                  <div class="mt-3 pt-2 border-t border-zinc-100 flex justify-between font-semibold text-zinc-900 text-xs">
+                    <span>Total Equity</span>
+                    <span id="bs-total-equity" class="font-mono">$0.00</span>
+                  </div>
+                </div>
+                <div class="pt-4 border-t-2 border-zinc-900 flex justify-between font-extrabold text-zinc-900 text-sm">
+                  <span>Total Liabilities &amp; Equity</span>
+                  <span id="bs-total-liab-equity" class="font-mono text-zinc-900">$0.00</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="stmt-container-income-statement" class="hidden bg-white rounded-3xl p-6 sm:p-8 border border-zinc-200/70 shadow-sm space-y-6">
+            <div class="border-b border-zinc-100 pb-4">
+              <h3 class="text-lg font-extrabold text-zinc-900">Income Statement (Profit &amp; Loss)</h3>
+              <p id="is-subtitle" class="text-xs text-zinc-500 font-medium">Revenues &minus; Expenses = Net Operating Income &middot; For selected period</p>
+            </div>
+            <div class="space-y-6 max-w-3xl">
+              <div>
+                <h4 class="text-xs font-bold text-zinc-900 uppercase tracking-wider mb-3">Revenues</h4>
+                <div id="is-revenues-list" class="space-y-2.5 text-xs text-zinc-700"></div>
+                <div class="mt-3 pt-2 border-t border-zinc-100 flex justify-between font-semibold text-zinc-900 text-xs">
+                  <span>Total Revenues</span>
+                  <span id="is-total-revenue" class="font-mono font-bold text-zinc-900">$0.00</span>
+                </div>
+              </div>
+              <div>
+                <h4 class="text-xs font-bold text-zinc-900 uppercase tracking-wider mb-3">Operating Expenses</h4>
+                <div id="is-expenses-list" class="space-y-2.5 text-xs text-zinc-700"></div>
+                <div class="mt-3 pt-2 border-t border-zinc-100 flex justify-between font-semibold text-zinc-900 text-xs">
+                  <span>Total Operating Expenses</span>
+                  <span id="is-total-expense" class="font-mono font-bold text-zinc-900">$0.00</span>
+                </div>
+              </div>
+              <div class="pt-4 border-t-2 border-zinc-900 flex justify-between font-extrabold text-sm text-zinc-900 bg-zinc-50 p-4 rounded-2xl">
+                <div>
+                  <span class="block">Net Operating Income</span>
+                  <span class="text-[11px] font-normal text-zinc-500">Transfers directly into Retained Earnings / Equity</span>
+                </div>
+                <span id="is-net-income" class="font-mono text-zinc-900 text-base font-extrabold">$0.00</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="stmt-container-cash-flow" class="hidden bg-white rounded-3xl p-6 sm:p-8 border border-zinc-200/70 shadow-sm space-y-6">
+            <div class="border-b border-zinc-100 pb-4">
+              <h3 class="text-lg font-extrabold text-zinc-900">Statement of Cash Flows (Indirect Method)</h3>
+              <p id="cf-subtitle" class="text-xs text-zinc-500 font-medium">Operating, Investing, and Financing Cash Activities &middot; For selected period</p>
+            </div>
+            <div id="cf-content" class="space-y-4 max-w-3xl text-xs"></div>
+          </div>
+
+          <div id="stmt-container-equity-statement" class="hidden bg-white rounded-3xl p-6 sm:p-8 border border-zinc-200/70 shadow-sm space-y-6">
+            <div class="border-b border-zinc-100 pb-4">
+              <h3 class="text-lg font-extrabold text-zinc-900">Statement of Changes in Equity</h3>
+              <p id="eq-subtitle" class="text-xs text-zinc-500 font-medium">Beginning Equity + Capital Injections + Net Income &minus; Drawings = Ending Equity</p>
+            </div>
+            <div id="eq-content" class="space-y-4 max-w-3xl text-xs"></div>
+          </div>
+        </section>
+
+        <!-- ================= VIEW: INVOICES (A/R) ================= -->
+        <section id="view-invoices" class="hidden space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
+            <div class="flex items-center gap-3">
+              <div class="h-9 w-9 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-xs">
+                <span class="material-symbols-outlined text-base">receipt_long</span>
+              </div>
+              <div>
+                <h2 class="text-base font-bold text-zinc-900">Accounts Receivable (Invoices)</h2>
+                <p class="text-xs text-zinc-500">Track outstanding customer sales on account and record payments</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="document.getElementById('btn-open-create-tx').click()" class="px-3 py-1.5 rounded-lg border border-zinc-900 hover:bg-zinc-100 text-zinc-900 text-xs font-bold transition cursor-pointer flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-sm">add</span> + New Invoice
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden shadow-xs">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="bg-[#f0f0f0] text-[11px] uppercase tracking-wider text-zinc-700 font-bold border-b border-zinc-300">
+                  <tr>
+                    <th class="py-2 px-3 border-r border-zinc-200 whitespace-nowrap">Invoice #</th>
+                    <th class="py-2 px-3 border-r border-zinc-200">Customer</th>
+                    <th class="py-2 px-3 border-r border-zinc-200 whitespace-nowrap">Date / Due</th>
+                    <th class="py-2 px-3 border-r border-zinc-200 text-right whitespace-nowrap font-mono">Total</th>
+                    <th class="py-2 px-3 border-r border-zinc-200 text-right whitespace-nowrap font-mono">Balance Due</th>
+                    <th class="py-2 px-3 border-r border-zinc-200 text-center whitespace-nowrap">Status</th>
+                    <th class="py-2 px-3 text-center whitespace-nowrap">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="invoices-table-body" class="divide-y divide-zinc-200 text-zinc-800"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= VIEW: BILLS (A/P) ================= -->
+        <section id="view-bills" class="hidden space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
+            <div class="flex items-center gap-3">
+              <div class="h-9 w-9 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-xs">
+                <span class="material-symbols-outlined text-base">payments</span>
+              </div>
+              <div>
+                <h2 class="text-base font-bold text-zinc-900">Accounts Payable (Vendor Bills)</h2>
+                <p class="text-xs text-zinc-500">Track vendor obligations and record outgoing bill settlements</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="document.getElementById('btn-open-create-tx').click()" class="px-3 py-1.5 rounded-lg border border-zinc-900 hover:bg-zinc-100 text-zinc-900 text-xs font-bold transition cursor-pointer flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-sm">add</span> + New Bill
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden shadow-xs">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="bg-[#f0f0f0] text-[11px] uppercase tracking-wider text-zinc-700 font-bold border-b border-zinc-300">
+                  <tr>
+                    <th class="py-2 px-3 border-r border-zinc-200 whitespace-nowrap">Bill #</th>
+                    <th class="py-2 px-3 border-r border-zinc-200">Vendor</th>
+                    <th class="py-2 px-3 border-r border-zinc-200 whitespace-nowrap">Date / Due</th>
+                    <th class="py-2 px-3 border-r border-zinc-200 text-right whitespace-nowrap font-mono">Total</th>
+                    <th class="py-2 px-3 border-r border-zinc-200 text-right whitespace-nowrap font-mono">Balance Due</th>
+                    <th class="py-2 px-3 border-r border-zinc-200 text-center whitespace-nowrap">Status</th>
+                    <th class="py-2 px-3 text-center whitespace-nowrap">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="bills-table-body" class="divide-y divide-zinc-200 text-zinc-800"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= VIEW: GENERAL JOURNAL ================= -->
+        <section id="view-journal" class="hidden space-y-4">
+          <!-- Top Header -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
+            <div class="flex items-center gap-3">
+              <div class="h-9 w-9 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-xs">
+                <span class="material-symbols-outlined text-base">history_edu</span>
+              </div>
+              <div>
+                <h2 class="text-base font-bold text-zinc-900">General Journal</h2>
+                <p class="text-xs text-zinc-500">Immutable transaction log &middot; Double-entry verification (Debits = Credits) &middot; Full precision timestamp</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <span id="journal-count-badge" class="px-2.5 py-1 text-xs font-mono font-medium text-zinc-700 bg-zinc-100 border border-zinc-200 rounded-lg">0 entries</span>
+            </div>
+          </div>
+
+          <!-- Search & Category Source Filters -->
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white rounded-xl p-3 border border-zinc-200 shadow-xs">
+            <!-- Search Bar -->
+            <div class="relative flex-1 max-w-md">
+              <span class="material-symbols-outlined absolute left-3 top-2 text-zinc-400 text-sm">search</span>
+              <input type="text" id="journal-search-input" placeholder="Search memo, account, entry #..." class="w-full pl-8 pr-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900">
+            </div>
+
+            <!-- Plain-text Source Filter row -->
+            <div class="flex items-center gap-2 flex-wrap text-xs" id="journal-source-filter-chips">
+              <span class="text-zinc-400 text-[11px] font-semibold uppercase tracking-wider mr-1">Source:</span>
+              <button data-src="all" class="journal-filter-chip font-bold underline text-zinc-900 px-1 py-0.5 cursor-pointer">All</button>
+              <span class="text-zinc-300">&middot;</span>
+              <button data-src="SalesReceipt" class="journal-filter-chip text-zinc-600 hover:text-zinc-900 px-1 py-0.5 cursor-pointer">Sales</button>
+              <span class="text-zinc-300">&middot;</span>
+              <button data-src="ExpenseVoucher" class="journal-filter-chip text-zinc-600 hover:text-zinc-900 px-1 py-0.5 cursor-pointer">Expenses</button>
+              <span class="text-zinc-300">&middot;</span>
+              <button data-src="CustomerInvoice" class="journal-filter-chip text-zinc-600 hover:text-zinc-900 px-1 py-0.5 cursor-pointer">Invoices (A/R)</button>
+              <span class="text-zinc-300">&middot;</span>
+              <button data-src="VendorBill" class="journal-filter-chip text-zinc-600 hover:text-zinc-900 px-1 py-0.5 cursor-pointer">Bills (A/P)</button>
+              <span class="text-zinc-300">&middot;</span>
+              <button data-src="General" class="journal-filter-chip text-zinc-600 hover:text-zinc-900 px-1 py-0.5 cursor-pointer">General</button>
+            </div>
+          </div>
+
+          <!-- Balance Totals Header Bar (Subtotal check) -->
+          <div id="journal-balance-summary-bar" class="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-zinc-100 border border-zinc-200 rounded-xl text-xs">
+            <div class="flex items-center gap-4">
+              <span class="font-bold text-zinc-900">Journal Balance Verification:</span>
+              <span class="text-zinc-600 font-mono">Total Debits: <strong id="gj-total-debits" class="text-zinc-900 font-bold">$0.00</strong></span>
+              <span class="text-zinc-600 font-mono">Total Credits: <strong id="gj-total-credits" class="text-zinc-900 font-bold">$0.00</strong></span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="gj-balance-badge" class="px-2 py-0.5 font-mono text-[11px] font-bold rounded bg-zinc-200 text-zinc-800 border border-zinc-300">Balanced &bull; Variance $0.00</span>
+            </div>
+          </div>
+
+          <!-- Two-Layer General Journal Table (table-fixed, 4 columns) -->
+          <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden shadow-xs">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse table-fixed min-w-[700px]">
+                <colgroup>
+                  <col class="w-[30%]">
+                  <col class="w-[42%]">
+                  <col class="w-[14%]">
+                  <col class="w-[14%]">
+                </colgroup>
+                <thead class="bg-[#f0f0f0] text-[11px] uppercase tracking-wider text-zinc-700 font-bold border-b border-zinc-300">
+                  <tr>
+                    <th class="py-2 px-3 border-r border-zinc-200">Account</th>
+                    <th class="py-2 px-3 border-r border-zinc-200">Line Memo / Description</th>
+                    <th class="py-2 px-3 border-r border-zinc-200 text-right font-mono">Debit</th>
+                    <th class="py-2 px-3 text-right font-mono">Credit</th>
+                  </tr>
+                </thead>
+                <tbody id="journal-table-tbody" class="text-zinc-800">
+                  <!-- Rendered dynamically: Entry Header Row, Line Rows, and Total Balanced Row -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= VIEW: ACCOUNT LEDGERS ================= -->
+        <section id="view-ledgers" class="hidden space-y-4">
+          <!-- Top Header & Account Picker -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
+            <div class="flex items-center gap-3">
+              <div class="h-9 w-9 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-xs">
+                <span class="material-symbols-outlined text-base">menu_book</span>
+              </div>
+              <div>
+                <h2 class="text-base font-bold text-zinc-900">Individual Account Ledgers (T-Accounts)</h2>
+                <p class="text-xs text-zinc-500">Continuous spreadsheet register of all debits, credits, and running balances</p>
+              </div>
+            </div>
+
+            <!-- Account Selector Dropdown -->
+            <div class="flex items-center gap-2">
+              <label for="ledger-account-select" class="text-xs font-semibold text-zinc-600 hidden sm:inline">Account:</label>
+              <select id="ledger-account-select" class="px-3 py-1.5 bg-zinc-50 border border-zinc-300 rounded-lg text-xs font-semibold text-zinc-900 shadow-xs focus:outline-none focus:ring-1 focus:ring-zinc-900"></select>
+            </div>
+          </div>
+
+          <!-- Search & Filter Bar -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-xl p-3 border border-zinc-200 shadow-xs">
+            <!-- Search Bar -->
+            <div class="relative flex-1 max-w-md">
+              <span class="material-symbols-outlined absolute left-3 top-2 text-zinc-400 text-sm">search</span>
+              <input type="text" id="ledger-search-input" placeholder="Filter ledger by description or memo..." class="w-full pl-8 pr-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900">
+            </div>
+
+            <div class="flex items-center gap-2">
+              <span id="ledger-entry-count" class="px-2.5 py-1 text-xs font-mono font-medium text-zinc-700 bg-zinc-100 border border-zinc-200 rounded-lg">0 postings</span>
+            </div>
+          </div>
+
+          <!-- Account Header Bar (Matching Chart of Accounts Category Subtotal Header) -->
+          <div id="active-ledger-header" class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-[#f0f0f0] border border-zinc-300 rounded-xl text-xs font-medium text-zinc-800">
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <span id="ledger-acc-code-badge" class="font-mono font-bold px-2 py-0.5 rounded bg-zinc-900 text-white text-[11px]">1010</span>
+              <h3 id="ledger-acc-name" class="font-bold text-zinc-900 text-sm">Cash on Hand</h3>
+              <span id="ledger-acc-meta" class="text-[11px] text-zinc-500 font-mono">Normal: Debit &bull; Category: Asset</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-zinc-500 uppercase tracking-wider text-[10px] font-bold">Current Ledger Balance:</span>
+              <span id="ledger-acc-balance" class="font-mono font-bold text-sm text-zinc-900">$0.00</span>
+            </div>
+          </div>
+
+          <!-- Compact Account Ledger Table -->
+          <div class="bg-white rounded-xl border border-zinc-200 overflow-hidden shadow-xs">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="bg-[#f0f0f0] text-[11px] uppercase tracking-wider text-zinc-700 font-bold border-b border-zinc-300">
+                  <tr>
+                    <th class="py-2 px-3 border-r border-zinc-200 whitespace-nowrap">Date &amp; Time</th>
+                    <th class="py-2 px-3 border-r border-zinc-200">Description / Memo</th>
+                    <th class="py-2 px-3 border-r border-zinc-200 text-center whitespace-nowrap">Journal Ref</th>
+                    <th class="py-2 px-3 border-r border-zinc-200 text-right whitespace-nowrap font-mono">Debit</th>
+                    <th class="py-2 px-3 border-r border-zinc-200 text-right whitespace-nowrap font-mono">Credit</th>
+                    <th class="py-2 px-3 border-r border-zinc-200 text-right whitespace-nowrap font-mono">Running Balance</th>
+                    <th class="py-2 px-3 text-center whitespace-nowrap">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="ledger-entries-tbody" class="divide-y divide-zinc-200 text-zinc-800">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= VIEW: CHART OF ACCOUNTS ================= -->
+        <section id="view-accounts" class="hidden space-y-4">
+          
+          <!-- Top Header & Primary Action -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-2xl p-4 border border-zinc-200 shadow-xs">
+            <div class="flex items-center gap-3">
+              <div class="h-9 w-9 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-xs">
+                <span class="material-symbols-outlined text-base">account_tree</span>
+              </div>
+              <div>
+                <h2 class="text-base font-bold text-zinc-900">Chart of Accounts</h2>
+                <p class="text-xs text-zinc-500">Master account directory, financial classifications &amp; ledger management</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button id="btn-open-add-account" class="px-3.5 py-1.5 rounded-lg border border-zinc-900 hover:bg-zinc-100 text-zinc-900 text-xs font-bold transition cursor-pointer flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-sm">add</span>
+                <span>+ Add Account</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Search, Category Filters, and Options Bar -->
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white rounded-xl p-3 border border-zinc-200 shadow-xs">
+            <!-- Search Bar -->
+            <div class="relative flex-1 max-w-md">
+              <span class="material-symbols-outlined absolute left-3 top-2 text-zinc-400 text-sm">search</span>
+              <input type="text" id="coa-search-input" placeholder="Search accounts by code or name (e.g. 1010, Cash, Revenue)..." class="w-full pl-8 pr-3 py-1.5 bg-zinc-50 border border-zinc-200 rounded-lg text-xs text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900">
+            </div>
+
+            <!-- Plain-text Category Filter Row -->
+            <div class="flex items-center gap-2 flex-wrap text-xs" id="coa-category-filter-chips">
+              <span class="text-zinc-400 text-[11px] font-semibold uppercase tracking-wider mr-1">Filter:</span>
+              <button data-cat="all" class="coa-filter-chip font-bold underline text-zinc-900 px-1 py-0.5 cursor-pointer">All</button>
+              <span class="text-zinc-300">&middot;</span>
+              <button data-cat="Asset" class="coa-filter-chip text-zinc-600 hover:text-zinc-900 px-1 py-0.5 cursor-pointer">Assets</button>
+              <span class="text-zinc-300">&middot;</span>
+              <button data-cat="Liability" class="coa-filter-chip text-zinc-600 hover:text-zinc-900 px-1 py-0.5 cursor-pointer">Liabilities</button>
+              <span class="text-zinc-300">&middot;</span>
+              <button data-cat="Equity" class="coa-filter-chip text-zinc-600 hover:text-zinc-900 px-1 py-0.5 cursor-pointer">Equity</button>
+              <span class="text-zinc-300">&middot;</span>
+              <button data-cat="Revenue" class="coa-filter-chip text-zinc-600 hover:text-zinc-900 px-1 py-0.5 cursor-pointer">Revenue</button>
+              <span class="text-zinc-300">&middot;</span>
+              <button data-cat="Expense" class="coa-filter-chip text-zinc-600 hover:text-zinc-900 px-1 py-0.5 cursor-pointer">Expenses</button>
+            </div>
+
+            <!-- Show Deactivated Toggle -->
+            <label class="flex items-center gap-2 text-xs font-medium text-zinc-600 cursor-pointer select-none">
+              <input type="checkbox" id="coa-show-deactivated" class="rounded text-zinc-900 focus:ring-zinc-900 h-3.5 w-3.5 border-zinc-300">
+              <span>Show Inactive</span>
+            </label>
+          </div>
+
+          <!-- One Continuous Master Chart of Accounts Table -->
+          <div class="bg-white rounded-xl border border-[#e0e0e0] overflow-hidden shadow-xs">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="bg-[#f0f0f0] text-[11px] uppercase tracking-wider text-zinc-700 font-bold border-b border-[#e0e0e0]">
+                  <tr>
+                    <th class="py-2 px-3 pl-4 border-r border-[#e0e0e0] whitespace-nowrap">Code</th>
+                    <th class="py-2 px-3 border-r border-[#e0e0e0]">Account Name</th>
+                    <th class="py-2 px-3 border-r border-[#e0e0e0] whitespace-nowrap">Type</th>
+                    <th class="py-2 px-3 border-r border-[#e0e0e0] whitespace-nowrap">Subtype</th>
+                    <th class="py-2 px-3 border-r border-[#e0e0e0] text-center whitespace-nowrap">Normal Bal.</th>
+                    <th class="py-2 px-3 border-r border-[#e0e0e0] text-right font-mono whitespace-nowrap">Balance</th>
+                    <th class="py-2 px-3 border-r border-[#e0e0e0] text-center whitespace-nowrap">Currency</th>
+                    <th class="py-2 px-3 border-r border-[#e0e0e0] text-center whitespace-nowrap">Status</th>
+                    <th class="py-2 px-3 pr-4 text-center whitespace-nowrap">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="coa-table-tbody" class="text-zinc-800">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ================= VIEW: CONTACTS DIRECTORY ================= -->
+        <section id="view-directory" class="hidden space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white rounded-3xl p-6 border border-zinc-200/70 shadow-sm space-y-4">
+              <h3 class="font-bold text-zinc-900 text-sm flex items-center gap-2">
+                <span class="material-symbols-outlined text-zinc-600">person</span> Customers (A/R)
+              </h3>
+              <div id="customers-list" class="divide-y divide-zinc-100 text-xs"></div>
+            </div>
+
+            <div class="bg-white rounded-3xl p-6 border border-zinc-200/70 shadow-sm space-y-4">
+              <h3 class="font-bold text-zinc-900 text-sm flex items-center gap-2">
+                <span class="material-symbols-outlined text-zinc-600">store</span> Vendors (A/P)
+              </h3>
+              <div id="vendors-list" class="divide-y divide-zinc-100 text-xs"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= VIEW: COMPANY SETTINGS ================= -->
+        <section id="view-settings" class="hidden space-y-6">
+          
+          <!-- Top Header -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-3xl p-6 border border-zinc-200/70 shadow-sm">
+            <div class="flex items-center gap-3">
+              <div class="h-10 w-10 rounded-2xl bg-zinc-900 text-white flex items-center justify-center shadow-sm">
+                <span class="material-symbols-outlined text-lg">settings</span>
+              </div>
+              <div>
+                <h2 class="text-lg font-bold text-zinc-900">Company Settings &amp; Multi-Currency</h2>
+                <p class="text-xs text-zinc-400">Configure company base currency, default formatting, and display rules</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Card: Base Currency Settings -->
+            <div class="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-7 border border-zinc-200/70 shadow-sm space-y-5">
+              <div class="flex items-center gap-2 border-b border-zinc-100 pb-3">
+                <span class="material-symbols-outlined text-zinc-900 text-base">currency_exchange</span>
+                <h3 class="font-bold text-zinc-900 text-sm">Company Base Currency &amp; Defaults</h3>
+              </div>
+
+              <!-- Important Multi-Currency Policy Banner -->
+              <div class="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-zinc-800 text-xs space-y-2">
+                <div class="flex items-center gap-2 font-bold text-zinc-900">
+                  <span class="material-symbols-outlined text-sm text-zinc-900">info</span>
+                  <span>Multi-Currency Display Rules (Symbols Only)</span>
+                </div>
+                <p class="text-[11px] text-zinc-600 leading-relaxed">
+                  This system operates with <strong>display and data-tagging only</strong>. There is no auto-conversion or simulated exchange rates between currencies. Every transaction amount is stored and shown exactly as entered.
+                </p>
+                <div class="p-2.5 rounded-xl bg-white border border-zinc-200 text-[11px] text-zinc-700 space-y-1">
+                  <p><strong>• Base Currency:</strong> Used as the default preselected currency for new transactions and accounts.</p>
+                  <p><strong>• Honest Accounting:</strong> Subtotals never mix different currencies into an artificial 1:1 total. When a category or report contains multiple currencies, subtotals are broken down per currency.</p>
+                </div>
+              </div>
+
+              <form id="form-company-settings" class="space-y-4 text-xs">
+                <div>
+                  <label class="block text-zinc-700 font-bold mb-1">Company Trading Name</label>
+                  <input type="text" id="setting-company-name" placeholder="e.g. Acme Philippines Corp" value="Ledger Enterprise" class="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 font-medium focus:outline-none focus:ring-1 focus:ring-zinc-900">
+                </div>
+
+                <div>
+                  <label class="block text-zinc-700 font-bold mb-1">Default / Base Currency <span class="text-rose-500">*</span></label>
+                  <select id="setting-base-currency" required class="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 font-bold font-mono focus:outline-none focus:ring-1 focus:ring-zinc-900">
+                    <option value="PHP">PHP (₱) - Philippine Peso [Default]</option>
+                    <option value="USD">USD ($) - US Dollar</option>
+                    <option value="EUR">EUR (€) - Euro</option>
+                    <option value="GBP">GBP (£) - British Pound</option>
+                    <option value="JPY">JPY (¥) - Japanese Yen</option>
+                    <option value="SGD">SGD (S$) - Singapore Dollar</option>
+                    <option value="CAD">CAD (C$) - Canadian Dollar</option>
+                    <option value="AUD">AUD (A$) - Australian Dollar</option>
+                    <option value="HKD">HKD (HK$) - Hong Kong Dollar</option>
+                    <option value="CHF">CHF (CHF) - Swiss Franc</option>
+                    <option value="AED">AED (AED) - UAE Dirham</option>
+                  </select>
+                  <p class="text-[10px] text-zinc-400 mt-1">Transactions and accounts tagged in currencies other than the base currency will display a distinct currency badge.</p>
+                </div>
+
+                <div id="settings-save-alert" class="hidden p-3 rounded-xl bg-zinc-900 text-white text-xs font-semibold flex items-center gap-2">
+                  <span class="material-symbols-outlined text-sm">check_circle</span>
+                  <span>Company settings updated successfully!</span>
+                </div>
+
+                <div class="pt-2">
+                  <button type="submit" class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-xs shadow-sm transition cursor-pointer flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-sm">save</span>
+                    <span>Save Company Settings</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Right Card: Supported Currency Directory -->
+            <div class="lg:col-span-5 bg-white rounded-3xl p-6 sm:p-7 border border-zinc-200/70 shadow-sm space-y-4">
+              <div class="flex items-center gap-2 border-b border-zinc-100 pb-3">
+                <span class="material-symbols-outlined text-zinc-900 text-base">list_alt</span>
+                <h3 class="font-bold text-zinc-900 text-sm">Supported Currency Matrix</h3>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider border-b border-zinc-100">
+                    <tr>
+                      <th class="pb-2">Code</th>
+                      <th class="pb-2">Symbol</th>
+                      <th class="pb-2">Currency Name</th>
+                      <th class="pb-2 text-right">Sample</th>
+                    </tr>
+                  </thead>
+                  <tbody id="currency-directory-table" class="divide-y divide-zinc-100 font-mono text-zinc-700">
+                    <!-- Rendered dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ================= TRANSACTION MODAL ================= -->
+  <div id="modal-transaction" class="hidden fixed inset-0 z-50 overflow-y-auto bg-zinc-950/40 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5 text-zinc-800 my-8 border border-white">
+      <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-zinc-900">receipt</span>
+          <h3 class="font-bold text-zinc-900 text-base">Record New Transaction</h3>
+        </div>
+        <button id="modal-close-btn" class="p-1 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 cursor-pointer">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <!-- Path Selection -->
+      <div class="grid grid-cols-2 gap-2 p-1 bg-zinc-100 rounded-2xl">
+        <button id="tab-mode-simple" class="py-2 rounded-xl text-xs font-semibold bg-white text-zinc-900 shadow-sm cursor-pointer">
+          Sales / Expense (Guided)
+        </button>
+        <button id="tab-mode-advanced" class="py-2 rounded-xl text-xs font-medium text-zinc-500 hover:text-zinc-900 cursor-pointer">
+          General Journal (Advanced)
+        </button>
+      </div>
+
+      <!-- FORM: PATH A (GUIDED SALES / EXPENSE) -->
+      <form id="form-simple-tx" class="space-y-4 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-zinc-600 font-semibold mb-1">Transaction Type</label>
+            <div class="grid grid-cols-2 gap-1.5 p-1 bg-zinc-100 rounded-xl">
+              <button type="button" id="btn-type-sale" class="py-1.5 rounded-lg font-semibold bg-zinc-900 text-white cursor-pointer shadow-sm">Sale (+Rev)</button>
+              <button type="button" id="btn-type-expense" class="py-1.5 rounded-lg font-medium text-zinc-500 hover:text-zinc-900 cursor-pointer">Expense</button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-zinc-600 font-semibold mb-1">Payment Method</label>
+            <div class="grid grid-cols-2 gap-1.5 p-1 bg-zinc-100 rounded-xl">
+              <button type="button" id="btn-pay-now" class="py-1.5 rounded-lg font-semibold bg-white text-zinc-900 shadow-sm cursor-pointer">Paid Now</button>
+              <button type="button" id="btn-pay-account" class="py-1.5 rounded-lg font-medium text-zinc-500 hover:text-zinc-900 cursor-pointer">On Account</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-zinc-600 font-semibold mb-1">Transaction Date</label>
+            <input type="date" id="simple-tx-date" required class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 focus:outline-none">
+          </div>
+          <div id="due-date-container" class="hidden">
+            <label class="block text-zinc-600 font-semibold mb-1">Payment Due Date</label>
+            <input type="date" id="simple-tx-due-date" class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div id="contact-field-container">
+            <label id="contact-label" class="block text-zinc-600 font-semibold mb-1">Customer</label>
+            <select id="simple-tx-contact" class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 focus:outline-none"></select>
+          </div>
+          <div>
+            <label id="category-label" class="block text-zinc-600 font-semibold mb-1">Revenue Category</label>
+            <select id="simple-tx-category" class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 focus:outline-none"></select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+          <div class="sm:col-span-4">
+            <label class="block text-zinc-600 font-semibold mb-1">Currency</label>
+            <select id="simple-tx-currency" class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 font-bold font-mono focus:outline-none">
+              <option value="PHP">PHP (₱)</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="JPY">JPY (¥)</option>
+              <option value="SGD">SGD (S$)</option>
+              <option value="CAD">CAD (C$)</option>
+              <option value="AUD">AUD (A$)</option>
+              <option value="HKD">HKD (HK$)</option>
+              <option value="CHF">CHF (CHF)</option>
+              <option value="AED">AED (AED)</option>
+            </select>
+          </div>
+          <div class="sm:col-span-8">
+            <label class="block text-zinc-600 font-semibold mb-1">Amount</label>
+            <div class="relative">
+              <span id="simple-tx-currency-symbol" class="absolute left-3 top-2 text-zinc-500 font-mono font-bold text-xs">₱</span>
+              <input type="number" step="0.01" min="0.01" id="simple-tx-amount" required placeholder="0.00" class="w-full pl-8 pr-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 font-mono font-bold text-sm focus:outline-none">
+            </div>
+          </div>
+        </div>
+
+        <div id="cash-account-container">
+          <label class="block text-zinc-600 font-semibold mb-1">Deposit / Payment Account</label>
+          <select id="simple-tx-cash-acc" class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 focus:outline-none"></select>
+        </div>
+
+        <div>
+          <label class="block text-zinc-600 font-semibold mb-1">Memo / Description</label>
+          <input type="text" id="simple-tx-memo" placeholder="e.g. Monthly cloud subscription or design service sale" class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-zinc-600 font-semibold mb-1">Receipt Attachment</label>
+          <input type="file" id="simple-tx-file" accept="image/*,application/pdf" class="w-full text-xs text-zinc-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-800 hover:file:bg-zinc-200 cursor-pointer">
+        </div>
+
+        <!-- Automatic Journal Preview -->
+        <div class="p-3.5 bg-zinc-50 rounded-2xl border border-zinc-200 space-y-1">
+          <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Automated Double-Entry Cascade</span>
+          <div id="simple-tx-preview" class="font-mono text-[11px] text-zinc-700 space-y-0.5"></div>
+        </div>
+
+        <div class="pt-2 flex items-center justify-end gap-2 border-t border-zinc-100">
+          <button type="button" id="btn-cancel-simple-tx" class="btn-close-modal px-4 py-2.5 rounded-xl text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 font-semibold cursor-pointer">
+            Cancel
+          </button>
+          <button type="submit" id="btn-submit-simple" class="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-xs shadow-md transition cursor-pointer flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-sm">check</span>
+            <span>Post Transaction &amp; Update Ledgers</span>
+          </button>
+        </div>
+      </form>
+
+      <!-- FORM: PATH B (MANUAL MULTI-LINE JOURNAL ENTRY) -->
+      <form id="form-advanced-tx" class="hidden space-y-4 text-xs">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-zinc-600 font-semibold mb-1">Entry Date</label>
+            <input type="date" id="adv-tx-date" required class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-zinc-600 font-semibold mb-1">Reference # (Optional)</label>
+            <input type="text" id="adv-tx-ref" placeholder="JE-001" class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-zinc-600 font-semibold mb-1">Memo</label>
+          <input type="text" id="adv-tx-memo" required placeholder="General journal adjustment memo" class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 focus:outline-none">
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex justify-between items-center">
+            <span class="text-zinc-600 font-semibold">Debit &amp; Credit Line Items</span>
+            <button type="button" id="btn-add-adv-line" class="text-zinc-900 hover:underline font-bold flex items-center gap-1 cursor-pointer">
+              <span class="material-symbols-outlined text-sm">add_circle</span> Add Line
+            </button>
+          </div>
+
+          <div id="adv-lines-container" class="space-y-2"></div>
+
+          <!-- Total Balance Check -->
+          <div class="p-3 bg-zinc-50 rounded-2xl border border-zinc-200 flex justify-between items-center font-mono text-xs">
+            <div>
+              <span class="text-zinc-500">Debits: </span>
+              <span id="adv-total-debits" class="font-bold text-zinc-900">$0.00</span>
+            </div>
+            <div>
+              <span class="text-zinc-500">Credits: </span>
+              <span id="adv-total-credits" class="font-bold text-zinc-900">$0.00</span>
+            </div>
+            <div id="adv-balance-status" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">
+              Unbalanced
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2 flex items-center justify-end gap-2 border-t border-zinc-100">
+          <button type="button" id="btn-cancel-adv-tx" class="btn-close-modal px-4 py-2.5 rounded-xl text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 font-semibold cursor-pointer">
+            Cancel
+          </button>
+          <button type="submit" id="btn-submit-adv" disabled class="px-5 py-2.5 rounded-xl bg-zinc-200 text-zinc-400 font-bold text-xs transition cursor-not-allowed">
+            Debits Must Equal Credits to Save
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= ADD ACCOUNT MODAL ================= -->
+  <div id="modal-add-account" class="hidden fixed inset-0 z-50 overflow-y-auto bg-zinc-950/40 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-5 text-zinc-800 my-8 border border-white">
+      <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="h-9 w-9 rounded-xl bg-zinc-900 text-white flex items-center justify-center">
+            <span class="material-symbols-outlined text-base">add_box</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-zinc-900 text-base">Add New Account</h3>
+            <p class="text-[11px] text-zinc-400">Classify account in double-entry chart of accounts</p>
+          </div>
+        </div>
+        <button id="modal-close-add-acc-btn" class="p-1 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 cursor-pointer">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <form id="form-add-account" class="space-y-4 text-xs">
+        
+        <!-- Category & Normal Balance Row -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-zinc-700 font-bold mb-1">Category <span class="text-rose-500">*</span></label>
+            <select id="new-acc-category" required class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 font-medium focus:outline-none focus:ring-1 focus:ring-zinc-900">
+              <option value="Asset">Asset (1000s)</option>
+              <option value="Liability">Liability (2000s)</option>
+              <option value="Equity">Equity (3000s)</option>
+              <option value="Revenue">Revenue (4000s)</option>
+              <option value="Expense">Expense (5000s/6000s)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-zinc-700 font-bold mb-1">Normal Balance</label>
+            <div class="flex items-center gap-2">
+              <select id="new-acc-normal" class="w-full px-3 py-2.5 bg-zinc-100 border border-zinc-200 rounded-xl text-zinc-700 font-mono font-bold focus:outline-none">
+                <option value="debit">Debit (Dr)</option>
+                <option value="credit">Credit (Cr)</option>
+              </select>
+            </div>
+            <p id="new-acc-normal-hint" class="text-[10px] text-zinc-400 mt-1">Auto-suggested based on accounting equation</p>
+          </div>
+        </div>
+
+        <!-- Subtype Selection -->
+        <div>
+          <label class="block text-zinc-700 font-bold mb-1">Account Subtype <span class="text-rose-500">*</span></label>
+          <select id="new-acc-subtype" required class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 font-medium focus:outline-none focus:ring-1 focus:ring-zinc-900">
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+
+        <!-- Code and Name Row -->
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+          <div class="sm:col-span-4">
+            <label class="block text-zinc-700 font-bold mb-1">Account Code <span class="text-rose-500">*</span></label>
+            <input type="text" id="new-acc-code" required placeholder="e.g. 1030" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-zinc-900">
+          </div>
+          <div class="sm:col-span-8">
+            <label class="block text-zinc-700 font-bold mb-1">Account Name <span class="text-rose-500">*</span></label>
+            <input type="text" id="new-acc-name" required placeholder="e.g. Petty Cash / Marketing Expense" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900">
+          </div>
+        </div>
+
+        <!-- Account Currency -->
+        <div>
+          <label class="block text-zinc-700 font-bold mb-1">Account Currency <span class="text-rose-500">*</span></label>
+          <select id="new-acc-currency" required class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 font-bold font-mono focus:outline-none focus:ring-1 focus:ring-zinc-900">
+            <option value="PHP">PHP (₱) - Philippine Peso</option>
+            <option value="USD">USD ($) - US Dollar</option>
+            <option value="EUR">EUR (€) - Euro</option>
+            <option value="GBP">GBP (£) - British Pound</option>
+            <option value="JPY">JPY (¥) - Japanese Yen</option>
+            <option value="SGD">SGD (S$) - Singapore Dollar</option>
+            <option value="CAD">CAD (C$) - Canadian Dollar</option>
+            <option value="AUD">AUD (A$) - Australian Dollar</option>
+            <option value="HKD">HKD (HK$) - Hong Kong Dollar</option>
+            <option value="CHF">CHF (CHF) - Swiss Franc</option>
+            <option value="AED">AED (AED) - UAE Dirham</option>
+          </select>
+          <p class="text-[10px] text-zinc-400 mt-1">Useful for accounts like "USD Bank Account" or "EUR Sales" that should always display in that currency symbol.</p>
+        </div>
+
+        <!-- Optional Opening Balance -->
+        <div class="p-3.5 bg-zinc-50 rounded-2xl border border-zinc-200/80 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-zinc-700 font-bold flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-sm text-zinc-600">account_balance_wallet</span>
+              <span>Opening Balance (Optional)</span>
+            </label>
+            <span class="text-[10px] text-zinc-400 font-mono">Day-1 Starting Capital</span>
+          </div>
+          <div class="relative">
+            <span id="new-acc-currency-symbol" class="absolute left-3 top-2.5 text-zinc-400 font-mono font-bold text-xs">₱</span>
+            <input type="number" step="0.01" min="0" id="new-acc-opening-balance" placeholder="0.00" class="w-full pl-8 pr-3 py-2 bg-white border border-zinc-200 rounded-xl text-zinc-900 font-mono font-bold text-xs focus:outline-none focus:ring-1 focus:ring-zinc-900">
+          </div>
+          <p class="text-[10px] text-zinc-500 leading-relaxed">
+            <span class="font-bold text-zinc-700">Auto-Balancing Notice:</span> Entering an opening balance will automatically record a balancing General Journal Entry against <span class="font-bold font-mono">3010 - Owner's Capital</span> so your books stay in 100% equilibrium.
+          </p>
+        </div>
+
+        <!-- Description / Notes -->
+        <div>
+          <label class="block text-zinc-700 font-bold mb-1">Description / Purpose (Optional)</label>
+          <textarea id="new-acc-desc" rows="2" placeholder="Specify account purpose, tracking policy, or tax notes..." class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 resize-none"></textarea>
+        </div>
+
+        <!-- Error alert if duplicate name/code -->
+        <div id="new-acc-error" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold"></div>
+
+        <!-- Actions -->
+        <div class="pt-2 flex items-center justify-end gap-2 border-t border-zinc-100">
+          <button type="button" id="btn-cancel-add-acc" class="px-4 py-2.5 rounded-xl text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 font-semibold cursor-pointer">
+            Cancel
+          </button>
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-bold shadow-sm transition cursor-pointer flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-sm">check</span>
+            <span>Save Account</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= EDIT & AUDIT ACCOUNT MODAL ================= -->
+  <div id="modal-edit-account" class="hidden fixed inset-0 z-50 overflow-y-auto bg-zinc-950/40 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl space-y-5 text-zinc-800 my-8 border border-white">
+      <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div id="edit-acc-icon-badge" class="h-9 w-9 rounded-xl bg-zinc-900 text-white flex items-center justify-center font-mono font-bold text-xs">
+            COA
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 id="edit-acc-modal-title" class="font-bold text-zinc-900 text-base">Account Settings</h3>
+              <span id="edit-acc-system-tag" class="hidden px-2 py-0.5 rounded-full text-[9px] font-bold bg-zinc-100 text-zinc-700">System</span>
+              <span id="edit-acc-status-tag" class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-zinc-900 text-white">Active</span>
+            </div>
+            <p id="edit-acc-modal-subtitle" class="text-[11px] text-zinc-400 font-mono">Code: 1010 &middot; Balance: $0.00</p>
+          </div>
+        </div>
+        <button id="modal-close-edit-acc-btn" class="p-1 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 cursor-pointer">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <!-- Overview stats pill -->
+      <div class="grid grid-cols-2 gap-3 p-3 bg-zinc-50 rounded-2xl border border-zinc-100 text-xs">
+        <div>
+          <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Current Ledger Balance</span>
+          <span id="edit-acc-curr-balance" class="font-mono font-bold text-zinc-900 text-sm">$0.00</span>
+        </div>
+        <div>
+          <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Normal Balance</span>
+          <span id="edit-acc-curr-normal" class="font-mono font-bold text-zinc-700 text-sm uppercase">Debit (Dr)</span>
+        </div>
+      </div>
+
+      <form id="form-edit-account" class="space-y-4 text-xs">
+        <input type="hidden" id="edit-acc-id">
+
+        <!-- Category Warning Banner (if transactions exist) -->
+        <div id="edit-category-locked-banner" class="hidden p-3 rounded-xl bg-zinc-100 border border-zinc-200 text-zinc-800 text-[11px] flex items-start gap-2">
+          <span class="material-symbols-outlined text-zinc-700 text-sm shrink-0 mt-0.5">lock</span>
+          <span><strong>Category is locked:</strong> This account has posted transactions in the General Journal. Category modifications are restricted to protect historical financial integrity.</span>
+        </div>
+
+        <!-- Category & Subtype Row -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-zinc-700 font-bold mb-1">Category</label>
+            <select id="edit-acc-category" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 font-medium focus:outline-none">
+              <option value="Asset">Asset</option>
+              <option value="Liability">Liability</option>
+              <option value="Equity">Equity</option>
+              <option value="Revenue">Revenue</option>
+              <option value="Expense">Expense</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-zinc-700 font-bold mb-1">Subtype</label>
+            <select id="edit-acc-subtype" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 font-medium focus:outline-none">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Code & Name Row -->
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+          <div class="sm:col-span-4">
+            <label class="block text-zinc-700 font-bold mb-1">Account Code</label>
+            <input type="text" id="edit-acc-code" required class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 font-mono font-bold focus:outline-none">
+          </div>
+          <div class="sm:col-span-8">
+            <label class="block text-zinc-700 font-bold mb-1">Account Name</label>
+            <input type="text" id="edit-acc-name" required class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 font-semibold focus:outline-none">
+          </div>
+        </div>
+
+        <!-- Account Currency -->
+        <div>
+          <label class="block text-zinc-700 font-bold mb-1">Account Currency</label>
+          <select id="edit-acc-currency" class="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 font-bold font-mono focus:outline-none">
+            <option value="PHP">PHP (₱) - Philippine Peso</option>
+            <option value="USD">USD ($) - US Dollar</option>
+            <option value="EUR">EUR (€) - Euro</option>
+            <option value="GBP">GBP (£) - British Pound</option>
+            <option value="JPY">JPY (¥) - Japanese Yen</option>
+            <option value="SGD">SGD (S$) - Singapore Dollar</option>
+            <option value="CAD">CAD (C$) - Canadian Dollar</option>
+            <option value="AUD">AUD (A$) - Australian Dollar</option>
+            <option value="HKD">HKD (HK$) - Hong Kong Dollar</option>
+            <option value="CHF">CHF (CHF) - Swiss Franc</option>
+            <option value="AED">AED (AED) - UAE Dirham</option>
+          </select>
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label class="block text-zinc-700 font-bold mb-1">Description / Notes</label>
+          <textarea id="edit-acc-desc" rows="2" class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 focus:outline-none resize-none"></textarea>
+        </div>
+
+        <div id="edit-acc-error" class="hidden p-3 rounded-xl bg-zinc-100 border border-zinc-300 text-zinc-900 text-xs font-semibold"></div>
+
+        <!-- Bottom Action Buttons -->
+        <div class="pt-3 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <!-- Deactivate / Reactivate button -->
+          <div>
+            <button type="button" id="btn-toggle-deactivate-account" class="text-xs font-bold px-3 py-2 rounded-xl transition cursor-pointer flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-sm">visibility_off</span>
+              <span id="btn-deactivate-label">Deactivate Account</span>
+            </button>
+            <p id="deactivate-system-note" class="hidden text-[10px] text-zinc-400 mt-0.5">System accounts cannot be deactivated.</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button type="button" id="btn-cancel-edit-acc" class="px-4 py-2.5 rounded-xl text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 font-semibold cursor-pointer">
+              Cancel
+            </button>
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-bold shadow-sm transition cursor-pointer flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-sm">save</span>
+              <span>Save Changes</span>
+            </button>
+          </div>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= JOURNAL ENTRY FULL DETAIL MODAL ================= -->
+  <div id="modal-journal-detail" class="hidden fixed inset-0 z-50 overflow-y-auto bg-zinc-950/40 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 text-zinc-800 my-8 border border-zinc-200">
+      <!-- Header -->
+      <div class="flex items-center justify-between border-b border-zinc-200 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="h-8 w-8 rounded-lg bg-zinc-900 text-white flex items-center justify-center font-mono font-bold text-xs">
+            JE
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 id="jed-modal-memo" class="font-bold text-zinc-900 text-sm">Journal Entry Details</h3>
+              <span id="jed-modal-source-badge" class="px-2 py-0.5 font-mono text-[10px] text-zinc-700 bg-zinc-100 border border-zinc-200 rounded">General</span>
+            </div>
+            <p id="jed-modal-meta" class="text-[11px] text-zinc-500 font-mono">Date: Aug 17, 2026 &middot; Posting ID: #JE-1001</p>
+          </div>
+        </div>
+        <button id="modal-close-journal-detail-btn" class="p-1 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 cursor-pointer">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <!-- Overview Info -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200 text-xs">
+        <div>
+          <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Timestamp</span>
+          <span id="jed-modal-timestamp" class="font-mono text-zinc-800 text-[11px] block truncate">-</span>
+        </div>
+        <div>
+          <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Total Debits</span>
+          <span id="jed-modal-debits" class="font-mono font-bold text-zinc-900 text-xs block truncate">$0.00</span>
+        </div>
+        <div>
+          <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Total Credits</span>
+          <span id="jed-modal-credits" class="font-mono font-bold text-zinc-900 text-xs block truncate">$0.00</span>
+        </div>
+        <div>
+          <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Balance State</span>
+          <span id="jed-modal-status" class="font-mono font-bold text-zinc-900 text-xs block truncate">Balanced ✓</span>
+        </div>
+      </div>
+
+      <!-- Attachment Link (if any) -->
+      <div id="jed-modal-attachment-row" class="hidden p-2.5 bg-zinc-50 rounded-xl border border-zinc-200 text-xs flex items-center justify-between">
+        <span class="text-zinc-600 flex items-center gap-1.5 font-medium">
+          <span class="material-symbols-outlined text-sm">attachment</span>
+          <span>Receipt / Supporting Document Attached</span>
+        </span>
+        <a id="jed-modal-attachment-link" href="#" target="_blank" class="px-3 py-1 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-xs font-bold transition">View File</a>
+      </div>
+
+      <!-- Lines Table -->
+      <div class="border border-zinc-300 rounded-xl overflow-hidden shadow-xs">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead class="bg-[#f0f0f0] text-[10px] uppercase tracking-wider text-zinc-700 font-bold border-b border-zinc-300">
+            <tr>
+              <th class="py-2 px-3 border-r border-zinc-200">Account</th>
+              <th class="py-2 px-3 border-r border-zinc-200">Line Memo / Description</th>
+              <th class="py-2 px-3 border-r border-zinc-200 text-right font-mono">Debit</th>
+              <th class="py-2 px-3 text-right font-mono">Credit</th>
+            </tr>
+          </thead>
+          <tbody id="jed-modal-lines-tbody" class="divide-y divide-zinc-200 font-mono text-zinc-800">
+            <!-- Rendered dynamically -->
+          </tbody>
+          <tfoot class="bg-zinc-100 font-mono font-bold text-zinc-900 border-t border-zinc-300">
+            <tr>
+              <td colspan="2" class="py-2 px-3 border-r border-zinc-200 text-right font-sans text-xs">Total Balanced:</td>
+              <td id="jed-modal-foot-debit" class="py-2 px-3 border-r border-zinc-200 text-right">$0.00</td>
+              <td id="jed-modal-foot-credit" class="py-2 px-3 text-right">$0.00</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Bottom action -->
+      <div class="pt-2 flex items-center justify-between border-t border-zinc-100">
+        <span class="text-[11px] text-zinc-400 font-mono">Immutable entry &middot; Reversal required for adjustments</span>
+        <button type="button" id="btn-close-jed-modal" class="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-bold text-xs shadow-xs transition cursor-pointer">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= JAVASCRIPT & FIREBASE ENGINE ================= -->
+  <script type="module" src="/src/app.js"></script>
+</body>
+</html>

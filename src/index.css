@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/* Shared Accounting Spreadsheet Grid Framework */
+.accounting-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #e0e0e0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #18181b;
+}
+
+.accounting-table th {
+  background-color: #f0f0f0;
+  color: #27272a;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 6px 12px;
+  border: 1px solid #e0e0e0;
+  white-space: nowrap;
+}
+
+.accounting-table td {
+  padding: 6px 12px;
+  border: 1px solid #e0e0e0;
+  font-size: 12px;
+}
+
+.accounting-table tr.row-even {
+  background-color: #fafafa;
+}
+
+.accounting-table tr.row-odd {
+  background-color: #ffffff;
+}
+
+.accounting-table tr.row-hover:hover {
+  background-color: #f4f4f5;
+}
+
+.tabular-num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}

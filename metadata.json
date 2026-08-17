@@ -1,0 +1,6 @@
+{
+  "name": "Ledger",
+  "description": "Simplified double-entry accounting system with automated balanced journal entry cascades, real-time financial statements, chart of accounts management, and multi-currency display support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
